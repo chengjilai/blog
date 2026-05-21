@@ -103,8 +103,8 @@ with ThreadPoolExecutor(max_workers=8) as pool:
                     pending.append(l)
                     print(f"  NEW: {l}")
 
-with open("state.py.tmp", "w") as f:
-    f.write(f"posts = {repr(posts)}\n")
-    f.write(f"indexes = {repr(indexes)}\n")
-    f.write(f"pending = {repr(list(pending))}\n")
-os.replace("state.py.tmp", "state.py")
+        with open("state.py.tmp", "w") as f:
+            f.write(f"posts = {repr(posts)}\n")
+            f.write(f"indexes = {repr(indexes)}\n")
+            f.write(f"pending = {repr(list(pending))}\n")
+        os.replace("state.py.tmp", "state.py")
