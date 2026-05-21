@@ -1,3 +1,6 @@
+import logging
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s")
+
 import os
 import re
 import urllib.request
@@ -48,6 +51,7 @@ class _Stripper(HTMLParser):
         return text.strip()
 
 def fetch(link):
+    logging.info("fetching %s", link)
     content = readability.Document(
         urllib.request.urlopen(
             urllib.request.Request(link, headers={"User-Agent": "Mozilla/5.0"}),
