@@ -86,6 +86,7 @@ def fetch(link):
 
 
 pending = deque(pending)
+queued = set(pending)
 
 with ThreadPoolExecutor(max_workers=8) as pool:
     while pending:
@@ -106,8 +107,9 @@ with ThreadPoolExecutor(max_workers=8) as pool:
             for l in out_links:
                 if urlparse(l).netloc.removeprefix("www.") in BAD_DOMAINS:
                     continue
-                if l not in posts and l not in indexes:
+                if l not in posts and l not in indexes and l not in queued:
                     pending.append(l)
+                    queued.add(l)
                     print(f"  NEW: {l}")
 
         with open("state.py.tmp", "w") as f:
