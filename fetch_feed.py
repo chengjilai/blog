@@ -22,7 +22,7 @@ BAD_DOMAINS = {"web.archive.org", "en.wikipedia.org",
                "youtube.com", "x.com", "twitter.com",
                "goodreads.com", "amazon.com", "reddit.com",
                "marketplace.visualstudio.com", "xkcd.com",
-               "codeberg.org", "gist.github.com"}
+               "codeberg.org", "gist.github.com", "github.com"}
 
 
 class _Stripper(HTMLParser):
