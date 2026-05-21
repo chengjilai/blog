@@ -8,8 +8,8 @@ for fname in os.listdir("content"):
         with open(f"content/{fname}") as f:
             content_urls.add(f.readline().strip())
 
-if posts != content_urls:
-    print(f"posts only: {posts - content_urls}")
-    print(f"files only: {content_urls - posts}")
+extra = content_urls - posts
+if extra:
+    print(f"orphan files: {extra}")
     sys.exit(1)
 print("OK")

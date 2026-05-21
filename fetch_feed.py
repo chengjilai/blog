@@ -90,12 +90,12 @@ with ThreadPoolExecutor(max_workers=8) as pool:
             kind, text, out_links = f.result()
             print(f"FETCH [{kind}]: {link}  ({len(text)} chars)")
 
-            (posts if kind == "post" else indexes).add(link)
-
             if kind == "post" and text:
                 _slug = re.sub(r"[^a-zA-Z0-9_.-]", "_", link)[:120]
                 with open(f"content/{_slug}.txt", "w") as fp:
                     fp.write(f"{link}\n\n{text}")
+
+            (posts if kind == "post" else indexes).add(link)
 
             for l in out_links:
                 if urlparse(l).netloc.removeprefix("www.") in BAD_DOMAINS:
