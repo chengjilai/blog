@@ -8,48 +8,51 @@ from urllib.parse import urljoin
 
 NS = {"atom": "http://www.w3.org/2005/Atom"}
 HEADERS = {"User-Agent": "Mozilla/5.0"}
+FEED_URLS = ["https://matklad.github.io/feed.xml",
+             "https://www.scattered-thoughts.net/atom.xml"]
 
 h = html2text.HTML2Text()
 h.ignore_links = True
 h.ignore_images = True
 h.body_width = 0
 
+
+def fetch(link):
+    html = urllib.request.urlopen(
+        urllib.request.Request(link, headers=HEADERS)
+    ).read().decode("utf-8")
+    content = readability.Document(html).summary()
+    plain = h.handle(content).strip()
+    anchors = lxml_html.fromstring(content).findall(".//a")
+    out_links = [urljoin(link, a.attrib["href"])
+                 for a in anchors
+                 if a.attrib.get("href") and not a.attrib["href"].startswith("#")]
+    return plain, out_links
+
+
 links = {
     entry.find("atom:link", namespaces=NS).attrib.get("href")
-    for url in ["https://matklad.github.io/feed.xml", "https://www.scattered-thoughts.net/atom.xml"]
+    for url in FEED_URLS
     for entry in xml.etree.ElementTree.parse(
         urllib.request.urlopen(urllib.request.Request(url, headers=HEADERS))
     ).getroot().findall("atom:entry", NS)
 }
 
+queue = deque(links)
 MAX_FETCH = 20
+n = 0
 
-seen = set()
-queue = deque(sorted(links))
-
-while queue and len(seen) < MAX_FETCH:
+while queue and n < MAX_FETCH:
     link = queue.popleft()
-    assert not link in seen
-    seen.add(link)
-
+    n += 1
     print(f"FETCH: {link}")
-
     try:
-        html = urllib.request.urlopen(
-            urllib.request.Request(link, headers=HEADERS)
-        ).read().decode("utf-8")
-        doc = readability.Document(html)
-        content_html = doc.summary()
-        plain = h.handle(content_html).strip()
+        plain, out_links = fetch(link)
         print(f"  plain text: {len(plain)} chars")
-
-        for a in lxml_html.fromstring(content_html).findall(".//a"):
-            href = a.attrib.get("href")
-            if href and not href.startswith("#"):
-                full = urljoin(link, href)
-                if full not in seen:
-                    links.add(full)
-                    queue.append(full)
-                    print(f"  NEW LINK: {full}")
+        for l in out_links:
+            if l not in links:
+                links.add(l)
+                queue.append(l)
+                print(f"  NEW: {l}")
     except Exception as e:
         print(f"  ERROR: {e}")
