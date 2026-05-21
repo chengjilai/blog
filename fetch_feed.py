@@ -1,16 +1,15 @@
-import logging
-logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s")
-
 import os
 import re
 import urllib.request
 from html.parser import HTMLParser
-from collections import deque
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import lxml.html
 from urllib.parse import urljoin, urlparse
 import readability
 from state import posts, indexes, pending
+
+import logging
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s")
 
 posts.update(open(f"content/{f}").readline().strip() for f in os.listdir("content"))
 
@@ -77,8 +76,12 @@ def fetch(link):
         kind = "post"
     return (kind, plain, out_links)
 
+batch_n = 0
+
 with ThreadPoolExecutor(max_workers=8) as pool:
     while pending:
+        batch_n += 1
+        logging.info("=== batch %d ===", batch_n)
         batch = [pending.popleft() for _ in range(min(len(pending), 8))]
         futures = {pool.submit(fetch, u): u for u in batch}
         for f in as_completed(futures):
