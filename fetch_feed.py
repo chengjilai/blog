@@ -16,6 +16,10 @@ HEADERS = {"User-Agent": "Mozilla/5.0"}
 FEED_URLS = ["https://matklad.github.io/feed.xml",
              "https://www.scattered-thoughts.net/atom.xml"]
 
+BAD_DOMAINS = {"web.archive.org", "wikipedia.org", "en.wikipedia.org",
+               "arxiv.org", "youtube.com", "x.com", "twitter.com",
+               "github.com", "goodreads.com", "amazon.com", "reddit.com"}
+
 os.makedirs("content", exist_ok=True)
 
 try:
@@ -131,6 +135,8 @@ with ThreadPoolExecutor(max_workers=8) as pool:
                         fp.write(f"{link}\n\n{text}")
 
                 for l in out_links:
+                    if urlparse(l).netloc in BAD_DOMAINS:
+                        continue
                     if l not in posts and l not in indexes:
                         pending.append(l)
                         print(f"  NEW: {l}")
