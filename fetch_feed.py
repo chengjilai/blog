@@ -30,17 +30,25 @@ class _Stripper(HTMLParser):
         super().__init__()
         self._parts = []
         self._skip = 0
+        self._pre = 0
 
     def handle_starttag(self, tag, _):
         if tag in ("script", "style", "head", "title", "noscript"):
             self._skip += 1
+        elif tag in ("pre", "code"):
+            self._pre += 1
+            self._parts.append("\n\n")
 
     def handle_endtag(self, tag):
         if tag in ("script", "style", "head", "title", "noscript"):
             self._skip -= 1
+        elif tag in ("pre", "code"):
+            self._pre -= 1
+            self._parts.append("\n\n")
         elif tag in ("p", "div", "h1", "h2", "h3", "h4", "h5", "h6",
-                     "li", "blockquote", "pre", "hr", "tr", "br", "ul", "ol"):
-            self._parts.append("\n")
+                     "li", "blockquote", "hr", "tr", "br", "ul", "ol"):
+            if not self._pre:
+                self._parts.append("\n")
 
     def handle_data(self, data):
         if not self._skip:
