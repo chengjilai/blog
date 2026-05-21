@@ -4,6 +4,7 @@ import html2text
 import readability
 from lxml import html as lxml_html
 from collections import deque
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from urllib.parse import urljoin
 
 NS = {"atom": "http://www.w3.org/2005/Atom"}
@@ -42,17 +43,21 @@ queue = deque(links)
 MAX_FETCH = 20
 n = 0
 
-while queue and n < MAX_FETCH:
-    link = queue.popleft()
-    n += 1
-    print(f"FETCH: {link}")
-    try:
-        plain, out_links = fetch(link)
-        print(f"  plain text: {len(plain)} chars")
-        for l in out_links:
-            if l not in links:
-                links.add(l)
-                queue.append(l)
-                print(f"  NEW: {l}")
-    except Exception as e:
-        print(f"  ERROR: {e}")
+with ThreadPoolExecutor(max_workers=8) as pool:
+    while queue and n < MAX_FETCH:
+        batch_size = min(len(queue), 8)
+        batch = [queue.popleft() for _ in range(batch_size)]
+        futures = {pool.submit(fetch, l): l for l in batch}
+        for f in as_completed(futures):
+            link = futures[f]
+            n += 1
+            try:
+                plain, out_links = f.result()
+                print(f"FETCH: {link}  ({len(plain)} chars)")
+                for l in out_links:
+                    if l not in links:
+                        links.add(l)
+                        queue.append(l)
+                        print(f"  NEW: {l}")
+            except Exception as e:
+                print(f"FETCH: {link}  ERROR: {e}")
