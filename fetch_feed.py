@@ -10,11 +10,7 @@ from urllib.parse import urljoin, urlparse
 from vendor.readability import Document
 from state import posts, indexes, pending
 
-for fname in os.listdir("content"):
-    if fname.endswith(".txt"):
-        with open(f"content/{fname}") as f:
-            posts.add(f.readline().strip())
-
+posts.update(open(f"content/{f}").readline().strip() for f in os.listdir("content"))
 NS = {"atom": "http://www.w3.org/2005/Atom"}
 HEADERS = {"User-Agent": "Mozilla/5.0"}
 BAD_DOMAINS = {"web.archive.org", "en.wikipedia.org",
@@ -62,11 +58,12 @@ class _Stripper(HTMLParser):
 
 
 def fetch(link):
-    raw = urllib.request.urlopen(
-        urllib.request.Request(link, headers=HEADERS)
-    ).read().decode("utf-8")
-
-    content = Document(raw, url=link).summary()
+    content = Document(
+        urllib.request.urlopen(
+            urllib.request.Request(link, headers=HEADERS)
+        ).read().decode("utf-8"),
+        url=link,
+    ).summary()
 
     s = _Stripper()
     s.feed(content)
