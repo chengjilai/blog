@@ -7,7 +7,7 @@ from html.parser import HTMLParser
 from collections import deque
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from lxml import html as lxml_html
-from urllib.parse import urljoin
+from urllib.parse import urljoin, urlparse
 
 from vendor.readability import Document
 
@@ -16,9 +16,10 @@ HEADERS = {"User-Agent": "Mozilla/5.0"}
 FEED_URLS = ["https://matklad.github.io/feed.xml",
              "https://www.scattered-thoughts.net/atom.xml"]
 
-BAD_DOMAINS = {"web.archive.org", "wikipedia.org", "en.wikipedia.org",
-               "arxiv.org", "youtube.com", "x.com", "twitter.com",
-               "github.com", "goodreads.com", "amazon.com", "reddit.com"}
+BAD_DOMAINS = {"web.archive.org", "en.wikipedia.org",
+               "youtube.com", "x.com", "twitter.com",
+               "goodreads.com", "amazon.com", "reddit.com",
+               "marketplace.visualstudio.com", "xkcd.com"}
 
 os.makedirs("content", exist_ok=True)
 
@@ -103,14 +104,13 @@ def fetch(link):
 
 
 if not posts:
-    seed = {
-        entry.find("atom:link", namespaces=NS).attrib.get("href")
-        for url in FEED_URLS
+    seed = []
+    for url in FEED_URLS:
         for entry in xml.etree.ElementTree.parse(
             urllib.request.urlopen(urllib.request.Request(url, headers=HEADERS))
-        ).getroot().findall("atom:entry", NS)
-    }
-    pending = [u for u in seed]
+        ).getroot().findall("atom:entry", NS):
+            seed.append(entry.find("atom:link", namespaces=NS).attrib.get("href"))
+    pending = seed
 
 pending = deque(pending)
 MAX_FETCH = 20
@@ -135,7 +135,7 @@ with ThreadPoolExecutor(max_workers=8) as pool:
                         fp.write(f"{link}\n\n{text}")
 
                 for l in out_links:
-                    if urlparse(l).netloc in BAD_DOMAINS:
+                    if urlparse(l).netloc.removeprefix("www.") in BAD_DOMAINS:
                         continue
                     if l not in posts and l not in indexes:
                         pending.append(l)
