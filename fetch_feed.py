@@ -11,13 +11,18 @@ from urllib.parse import urljoin, urlparse
 from vendor.readability import Document
 from state import posts, indexes, pending
 
+for fname in os.listdir("content"):
+    if fname.endswith(".txt"):
+        with open(f"content/{fname}") as f:
+            posts.add(f.readline().strip())
+
 NS = {"atom": "http://www.w3.org/2005/Atom"}
 HEADERS = {"User-Agent": "Mozilla/5.0"}
 BAD_DOMAINS = {"web.archive.org", "en.wikipedia.org",
                "youtube.com", "x.com", "twitter.com",
                "goodreads.com", "amazon.com", "reddit.com",
                "marketplace.visualstudio.com", "xkcd.com",
-               "codeberg.org"}
+               "codeberg.org", "gist.github.com"}
 
 
 class _Stripper(HTMLParser):
@@ -65,6 +70,7 @@ def fetch(link):
     out_links = [urljoin(link, a.attrib["href"])
                  for a in anchors
                  if a.attrib.get("href") and not a.attrib["href"].startswith("#")]
+    out_links = [u.split("#")[0] for u in out_links]
 
     a_text = sum(len(e.text or "") + len(e.tail or "") for e in tree.findall(".//a"))
     total = len(tree.text_content() or "")
