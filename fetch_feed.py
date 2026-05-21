@@ -8,15 +8,9 @@ from lxml import html as lxml_html
 from urllib.parse import urljoin, urlparse
 
 from vendor.readability import Document
-from state import posts, indexes, pending
+from state import posts, indexes, pending as _pending
 
 posts.update(open(f"content/{f}").readline().strip() for f in os.listdir("content"))
-HEADERS = {"User-Agent": "Mozilla/5.0"}
-BAD_DOMAINS = {"web.archive.org", "en.wikipedia.org",
-               "youtube.com", "x.com", "twitter.com",
-               "goodreads.com", "amazon.com", "reddit.com",
-               "marketplace.visualstudio.com", "xkcd.com",
-               "codeberg.org", "gist.github.com", "github.com"}
 
 
 class _Stripper(HTMLParser):
@@ -59,7 +53,7 @@ class _Stripper(HTMLParser):
 def fetch(link):
     content = Document(
         urllib.request.urlopen(
-            urllib.request.Request(link, headers=HEADERS)
+            urllib.request.Request(link, headers={"User-Agent": "Mozilla/5.0"})
         ).read().decode("utf-8"),
         url=link,
     ).summary()
@@ -88,12 +82,11 @@ def fetch(link):
     return (kind, plain, out_links)
 
 
-todo = deque(pending)
-queued = set(pending)
+pending = deque(_pending)
 
 with ThreadPoolExecutor(max_workers=8) as pool:
-    while todo:
-        batch = [todo.popleft() for _ in range(min(len(todo), 8))]
+    while pending:
+        batch = [pending.popleft() for _ in range(min(len(pending), 8))]
         futures = {pool.submit(fetch, u): u for u in batch}
         for f in as_completed(futures):
             link = futures[f]
@@ -108,15 +101,14 @@ with ThreadPoolExecutor(max_workers=8) as pool:
             (posts if kind == "post" else indexes).add(link)
 
             for u in out_links:
-                if urlparse(u).netloc.removeprefix("www.") in BAD_DOMAINS:
+                if urlparse(u).netloc.removeprefix("www.") in {"web.archive.org", "en.wikipedia.org", "youtube.com", "x.com", "twitter.com", "goodreads.com", "amazon.com", "reddit.com", "marketplace.visualstudio.com", "xkcd.com", "codeberg.org", "gist.github.com", "github.com"}:
                     continue
-                if u not in posts and u not in indexes and u not in queued:
-                    todo.append(u)
-                    queued.add(u)
+                if u not in posts and u not in indexes:
+                    pending.append(u)
                     print(f"  NEW: {u}")
 
         with open("state.py.tmp", "w") as f:
             f.write(f"posts = {repr(posts)}\n")
             f.write(f"indexes = {repr(indexes)}\n")
-            f.write(f"pending = {repr(list(todo))}\n")
+            f.write(f"pending = {repr(list(pending))}\n")
         os.replace("state.py.tmp", "state.py")
