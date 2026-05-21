@@ -4,14 +4,12 @@ import urllib.request
 from html.parser import HTMLParser
 from collections import deque
 from concurrent.futures import ThreadPoolExecutor, as_completed
-import lxml
+import lxml.html
 from urllib.parse import urljoin, urlparse
-
 import readability
 from state import posts, indexes, pending
 
 posts.update(open(f"content/{f}").readline().strip() for f in os.listdir("content"))
-
 
 class _Stripper(HTMLParser):
     def __init__(self):
@@ -49,7 +47,6 @@ class _Stripper(HTMLParser):
         text = re.sub(r"^[ \t]+|[ \t]+$", "", text, flags=re.MULTILINE)
         return text.strip()
 
-
 def fetch(link):
     content = readability.Document(
         urllib.request.urlopen(
@@ -69,12 +66,11 @@ def fetch(link):
     anchors = tree.findall(".//a")
     out_links = [urljoin(link, a.attrib["href"]).split("#")[0] for a in anchors if a.attrib.get("href") and not a.attrib["href"].startswith("#")]
 
-    if sum(len(e.text) + len(e.tail) for e in anchors) / len(tree.text_content()) > 0.4:
+    if sum(len(e.text or "") + len(e.tail or "") for e in anchors) / len(tree.text_content()) > 0.4:
         kind = "link_page"
     else:
         kind = "post"
     return (kind, plain, out_links)
-
 
 with ThreadPoolExecutor(max_workers=8) as pool:
     while pending:
