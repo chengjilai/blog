@@ -1,12 +1,6 @@
 # blog
 
-Fetch blog posts, extract plain text, crawl discovered links.
-
-## Setup
-
-```sh
-uv sync
-```
+Fetch blog posts, extract plain text
 
 ## Usage
 
@@ -18,7 +12,8 @@ indexes = set()
 pending = ["https://example.com/post-1", "https://example.com/post-2"]
 ```
 
-```sh
+```shell
+uv sync
 uv run python fetch_feed.py
 ```
 
