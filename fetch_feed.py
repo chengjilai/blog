@@ -84,7 +84,7 @@ with ThreadPoolExecutor(max_workers=8) as pool:
         for f in as_completed(futures):
             link = futures[f]
             kind, text, out_links = f.result()
-            print(f"FETCH [{kind}]: {link}  ({len(text)} chars)")
+            logging.info("[%s] %s  (%s chars)", kind, link, len(text))
 
             if kind == "post" and text:
                 _slug = re.sub(r"[^a-zA-Z0-9_.-]", "_", link)[:120]
@@ -98,7 +98,7 @@ with ThreadPoolExecutor(max_workers=8) as pool:
                     continue
                 if u not in posts and u not in indexes:
                     pending.append(u)
-                    print(f"  NEW: {u}")
+                    logging.info("  NEW: %s", u)
 
         with open("state.py.tmp", "w") as f:
             f.write(f"from collections import deque\nposts = {repr(posts)}\nindexes = {repr(indexes)}\npending = {repr(pending)}\n")
