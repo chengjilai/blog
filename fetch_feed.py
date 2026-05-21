@@ -1,4 +1,6 @@
+import os
 import re
+import time
 import xml.etree.ElementTree
 import urllib.request
 from html.parser import HTMLParser
@@ -13,6 +15,25 @@ NS = {"atom": "http://www.w3.org/2005/Atom"}
 HEADERS = {"User-Agent": "Mozilla/5.0"}
 FEED_URLS = ["https://matklad.github.io/feed.xml",
              "https://www.scattered-thoughts.net/atom.xml"]
+
+os.makedirs("content", exist_ok=True)
+
+try:
+    from state import posts, indexes, pending
+except ImportError:
+    posts, indexes, pending = set(), set(), []
+
+
+def _save_state():
+    with open("state.py.tmp", "w") as f:
+        f.write(f"posts = {repr(posts)}\n")
+        f.write(f"indexes = {repr(indexes)}\n")
+        f.write(f"pending = {repr(list(pending))}\n")
+    os.replace("state.py.tmp", "state.py")
+
+
+def _slug(url):
+    return re.sub(r"[^a-zA-Z0-9_.-]", "_", url)[:120]
 
 
 class _Stripper(HTMLParser):
@@ -77,37 +98,42 @@ def fetch(link):
     return (kind, plain, out_links)
 
 
-posts = {
-    entry.find("atom:link", namespaces=NS).attrib.get("href")
-    for url in FEED_URLS
-    for entry in xml.etree.ElementTree.parse(
-        urllib.request.urlopen(urllib.request.Request(url, headers=HEADERS))
-    ).getroot().findall("atom:entry", NS)
-}
+if not posts:
+    seed = {
+        entry.find("atom:link", namespaces=NS).attrib.get("href")
+        for url in FEED_URLS
+        for entry in xml.etree.ElementTree.parse(
+            urllib.request.urlopen(urllib.request.Request(url, headers=HEADERS))
+        ).getroot().findall("atom:entry", NS)
+    }
+    pending = [u for u in seed]
 
-pending = deque(posts)
-indexes = set()
+pending = deque(pending)
 MAX_FETCH = 20
-n = 0
 
 with ThreadPoolExecutor(max_workers=8) as pool:
-    while pending and n < MAX_FETCH:
+    while pending and MAX_FETCH > 0:
         batch_size = min(len(pending), 8)
         batch = [pending.popleft() for _ in range(batch_size)]
         futures = {pool.submit(fetch, l): l for l in batch}
         for f in as_completed(futures):
             link = futures[f]
-            n += 1
+            MAX_FETCH -= 1
             try:
                 kind, text, out_links = f.result()
                 print(f"FETCH [{kind}]: {link}  ({len(text)} chars)")
-                if kind == "link_page":
-                    indexes.add(link)
-                    posts.discard(link)
+
+                if kind in ("post", "empty", "link_page"):
+                    (posts if kind == "post" else indexes).add(link)
+
+                if kind == "post" and text:
+                    with open(f"content/{_slug(link)}.txt", "w") as fp:
+                        fp.write(f"{link}\n\n{text}")
+
                 for l in out_links:
                     if l not in posts and l not in indexes:
-                        posts.add(l)
                         pending.append(l)
                         print(f"  NEW: {l}")
             except Exception as e:
                 print(f"FETCH: {link}  ERROR: {e}")
+        _save_state()
