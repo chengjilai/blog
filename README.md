@@ -7,9 +7,10 @@ Fetch blog posts, extract plain text
 Edit `state.py` with seed URLs:
 
 ```python
+from collections import deque
 posts = set()
 indexes = set()
-pending = ["https://example.com/post-1", "https://example.com/post-2"]
+pending = deque(["https://example.com/post-1", "https://example.com/post-2"])
 ```
 
 ```shell
