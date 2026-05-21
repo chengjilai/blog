@@ -66,7 +66,8 @@ class Document:
         self.transform_misused_divs_into_paragraphs()
         candidates = self.score_paragraphs()
         best = self.select_best_candidate(candidates)
-        article = self.get_article(candidates, best) if best else (self.html.find("body") or self.html)  # type: ignore
+        body = self.html.find("body")
+        article = self.get_article(candidates, best) if best else (body if body is not None else self.html)  # type: ignore
         return self.sanitize(article, candidates)
 
     def get_article(self, candidates, best):
