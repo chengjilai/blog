@@ -4,10 +4,10 @@ import urllib.request
 from html.parser import HTMLParser
 from collections import deque
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from lxml import html as lxml_html
+import lxml
 from urllib.parse import urljoin, urlparse
 
-from readability import Document
+import readability
 from state import posts, indexes, pending
 
 posts.update(open(f"content/{f}").readline().strip() for f in os.listdir("content"))
@@ -51,7 +51,7 @@ class _Stripper(HTMLParser):
 
 
 def fetch(link):
-    content = Document(
+    content = readability.Document(
         urllib.request.urlopen(
             urllib.request.Request(link, headers={"User-Agent": "Mozilla/5.0"})
         ).read().decode("utf-8"),
@@ -65,17 +65,11 @@ def fetch(link):
     if len(plain) < 800:
         return ("empty", plain, [])
 
-    tree = lxml_html.fromstring(content)
+    tree = lxml.html.fromstring(content)
     anchors = tree.findall(".//a")
-    out_links = [urljoin(link, a.attrib["href"]).split("#")[0]
-                 for a in anchors
-                 if a.attrib.get("href") and not a.attrib["href"].startswith("#")]
+    out_links = [urljoin(link, a.attrib["href"]).split("#")[0] for a in anchors if a.attrib.get("href") and not a.attrib["href"].startswith("#")]
 
-    a_text = sum(len(e.text) + len(e.tail) for e in tree.findall(".//a"))
-    total = len(tree.text_content())
-    ld = a_text / total
-
-    if ld > 0.4:
+    if sum(len(e.text) + len(e.tail) for e in anchors) / len(tree.text_content()) > 0.4:
         kind = "link_page"
     else:
         kind = "post"
