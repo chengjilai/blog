@@ -16,7 +16,8 @@ HEADERS = {"User-Agent": "Mozilla/5.0"}
 BAD_DOMAINS = {"web.archive.org", "en.wikipedia.org",
                "youtube.com", "x.com", "twitter.com",
                "goodreads.com", "amazon.com", "reddit.com",
-               "marketplace.visualstudio.com", "xkcd.com"}
+               "marketplace.visualstudio.com", "xkcd.com",
+               "codeberg.org"}
 
 
 class _Stripper(HTMLParser):
@@ -69,9 +70,9 @@ def fetch(link):
     total = len(tree.text_content() or "")
     ld = a_text / max(total, 1)
 
-    if len(plain) < 200:
+    if len(plain) < 800:
         kind = "empty"
-    elif ld > 0.5:
+    elif ld > 0.4:
         kind = "link_page"
     else:
         kind = "post"
