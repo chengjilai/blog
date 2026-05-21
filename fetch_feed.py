@@ -7,7 +7,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from lxml import html as lxml_html
 from urllib.parse import urljoin, urlparse
 
-from vendor.readability import Document
+from readability import Document
 from state import posts, indexes, pending
 
 posts.update(open(f"content/{f}").readline().strip() for f in os.listdir("content"))
@@ -62,27 +62,25 @@ def fetch(link):
     s.feed(content)
     plain = s.get_text()
 
+    if len(plain) < 800:
+        return ("empty", plain, [])
+
     tree = lxml_html.fromstring(content)
     anchors = tree.findall(".//a")
-    out_links = [urljoin(link, a.attrib["href"])
+    out_links = [urljoin(link, a.attrib["href"]).split("#")[0]
                  for a in anchors
                  if a.attrib.get("href") and not a.attrib["href"].startswith("#")]
-    out_links = [u.split("#")[0] for u in out_links]
 
-    a_text = sum(len(e.text or "") + len(e.tail or "") for e in tree.findall(".//a"))
-    total = len(tree.text_content() or "")
-    ld = a_text / max(total, 1)
+    a_text = sum(len(e.text) + len(e.tail) for e in tree.findall(".//a"))
+    total = len(tree.text_content())
+    ld = a_text / total
 
-    if len(plain) < 800:
-        kind = "empty"
-    elif ld > 0.4:
+    if ld > 0.4:
         kind = "link_page"
     else:
         kind = "post"
     return (kind, plain, out_links)
 
-
-pending = deque(pending)
 
 with ThreadPoolExecutor(max_workers=8) as pool:
     while pending:
@@ -108,7 +106,5 @@ with ThreadPoolExecutor(max_workers=8) as pool:
                     print(f"  NEW: {u}")
 
         with open("state.py.tmp", "w") as f:
-            f.write(f"posts = {repr(posts)}\n")
-            f.write(f"indexes = {repr(indexes)}\n")
-            f.write(f"pending = {repr(list(pending))}\n")
+            f.write(f"from collections import deque\nposts = {repr(posts)}\nindexes = {repr(indexes)}\npending = {repr(pending)}\n")
         os.replace("state.py.tmp", "state.py")
