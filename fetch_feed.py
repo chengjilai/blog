@@ -8,7 +8,7 @@ from lxml import html as lxml_html
 from urllib.parse import urljoin, urlparse
 
 from vendor.readability import Document
-from state import posts, indexes, pending as _pending
+from state import posts, indexes, pending
 
 posts.update(open(f"content/{f}").readline().strip() for f in os.listdir("content"))
 
@@ -82,7 +82,7 @@ def fetch(link):
     return (kind, plain, out_links)
 
 
-pending = deque(_pending)
+pending = deque(pending)
 
 with ThreadPoolExecutor(max_workers=8) as pool:
     while pending:
