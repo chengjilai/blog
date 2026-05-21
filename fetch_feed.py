@@ -1,29 +1,61 @@
+import re
 import xml.etree.ElementTree
 import urllib.request
-import html2text
-import readability
-from lxml import html as lxml_html
+from html.parser import HTMLParser
 from collections import deque
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from lxml import html as lxml_html
 from urllib.parse import urljoin
+
+from vendor.readability import Document
 
 NS = {"atom": "http://www.w3.org/2005/Atom"}
 HEADERS = {"User-Agent": "Mozilla/5.0"}
 FEED_URLS = ["https://matklad.github.io/feed.xml",
              "https://www.scattered-thoughts.net/atom.xml"]
 
-h = html2text.HTML2Text()
-h.ignore_links = True
-h.ignore_images = True
-h.body_width = 0
+
+class _Stripper(HTMLParser):
+    def __init__(self):
+        super().__init__()
+        self._parts = []
+        self._skip = 0
+
+    def handle_starttag(self, tag, _):
+        if tag in ("script", "style", "head", "title", "noscript"):
+            self._skip += 1
+
+    def handle_endtag(self, tag):
+        if tag in ("script", "style", "head", "title", "noscript"):
+            self._skip -= 1
+        elif tag in ("p", "div", "h1", "h2", "h3", "h4", "h5", "h6",
+                     "li", "blockquote", "pre", "hr", "tr", "br", "ul", "ol"):
+            self._parts.append("\n")
+
+    def handle_data(self, data):
+        if not self._skip:
+            self._parts.append(data)
+
+    def get_text(self):
+        text = "".join(self._parts)
+        text = re.sub(r"\n[ \t]+\n", "\n\n", text)
+        text = re.sub(r"\n{3,}", "\n\n", text)
+        text = re.sub(r"^[ \t]+|[ \t]+$", "", text, flags=re.MULTILINE)
+        return text.strip()
+
+
+def html_to_text(html):
+    s = _Stripper()
+    s.feed(html)
+    return s.get_text()
 
 
 def fetch(link):
     html = urllib.request.urlopen(
         urllib.request.Request(link, headers=HEADERS)
     ).read().decode("utf-8")
-    content = readability.Document(html).summary()
-    plain = h.handle(content).strip()
+    content = Document(html, url=link).summary()
+    plain = html_to_text(content)
     anchors = lxml_html.fromstring(content).findall(".//a")
     out_links = [urljoin(link, a.attrib["href"])
                  for a in anchors
