@@ -11,7 +11,6 @@ from vendor.readability import Document
 from state import posts, indexes, pending
 
 posts.update(open(f"content/{f}").readline().strip() for f in os.listdir("content"))
-NS = {"atom": "http://www.w3.org/2005/Atom"}
 HEADERS = {"User-Agent": "Mozilla/5.0"}
 BAD_DOMAINS = {"web.archive.org", "en.wikipedia.org",
                "youtube.com", "x.com", "twitter.com",
