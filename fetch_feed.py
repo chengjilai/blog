@@ -1,6 +1,5 @@
 import os
 import re
-import xml.etree.ElementTree
 import urllib.request
 from html.parser import HTMLParser
 from collections import deque
@@ -32,7 +31,7 @@ class _Stripper(HTMLParser):
         self._skip = 0
         self._pre = 0
 
-    def handle_starttag(self, tag, _):
+    def handle_starttag(self, tag, attrs):
         if tag in ("script", "style", "head", "title", "noscript"):
             self._skip += 1
         elif tag in ("pre", "code"):
@@ -93,13 +92,13 @@ def fetch(link):
     return (kind, plain, out_links)
 
 
-pending = deque(pending)
+todo = deque(pending)
 queued = set(pending)
 
 with ThreadPoolExecutor(max_workers=8) as pool:
-    while pending:
-        batch = [pending.popleft() for _ in range(min(len(pending), 8))]
-        futures = {pool.submit(fetch, l): l for l in batch}
+    while todo:
+        batch = [todo.popleft() for _ in range(min(len(todo), 8))]
+        futures = {pool.submit(fetch, u): u for u in batch}
         for f in as_completed(futures):
             link = futures[f]
             kind, text, out_links = f.result()
@@ -112,16 +111,16 @@ with ThreadPoolExecutor(max_workers=8) as pool:
 
             (posts if kind == "post" else indexes).add(link)
 
-            for l in out_links:
-                if urlparse(l).netloc.removeprefix("www.") in BAD_DOMAINS:
+            for u in out_links:
+                if urlparse(u).netloc.removeprefix("www.") in BAD_DOMAINS:
                     continue
-                if l not in posts and l not in indexes and l not in queued:
-                    pending.append(l)
-                    queued.add(l)
-                    print(f"  NEW: {l}")
+                if u not in posts and u not in indexes and u not in queued:
+                    todo.append(u)
+                    queued.add(u)
+                    print(f"  NEW: {u}")
 
         with open("state.py.tmp", "w") as f:
             f.write(f"posts = {repr(posts)}\n")
             f.write(f"indexes = {repr(indexes)}\n")
-            f.write(f"pending = {repr(list(pending))}\n")
+            f.write(f"pending = {repr(list(todo))}\n")
         os.replace("state.py.tmp", "state.py")
