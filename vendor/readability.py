@@ -22,17 +22,11 @@ REGEXES = {
     ),
 }
 
-bad_attrs = ["width", "height", "style", "[-a-z]*color", "background[-a-z]*", "on*"]
-single_quoted = "'[^']+'"
-double_quoted = '"[^"]+"'
-non_space = "[^ \"'>]+"
-htmlstrip = re.compile(
-    "<([^>]+) (?:{}) *= *(?:{}|{}|{})([^>]*)>".format(
-        "|".join(bad_attrs), non_space, single_quoted, double_quoted
-    ),
+_attr_strip = re.compile(
+    r"<([^>]+) (?:width|height|style|[-a-z]*color|background[-a-z]*|on\w*)"
+    r'= *(?:[^ "\'<>]+|\'[^\']+\'|"[^"]+")([^>]*)>',
     re.I,
 )
-
 
 def clean(text):
     text = re.sub(r"\s{255,}", " " * 255, text)
@@ -43,12 +37,6 @@ def clean(text):
 
 def text_length(i):
     return len(clean(i.text_content() or ""))
-
-
-def clean_attributes(html):
-    while htmlstrip.search(html):
-        html = htmlstrip.sub(r"<\1\2>", html)
-    return html
 
 
 utf8_parser = lxml.html.HTMLParser(encoding="utf-8")
@@ -198,6 +186,9 @@ class Document:
             if weight + score < 0 or not text_length(el) or self.get_link_density(el) > 0.5:
                 el.drop_tree()
         self.html = node
-        return clean_attributes(tounicode(self.html, method="html"))
+        html = tounicode(self.html, method="html")
+        while _attr_strip.search(html):
+            html = _attr_strip.sub(r"<\1\2>", html)
+        return html
 
     min_text_length = 25
