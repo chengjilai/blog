@@ -44,26 +44,40 @@ class _Stripper(HTMLParser):
         return text.strip()
 
 
-def html_to_text(html):
-    s = _Stripper()
-    s.feed(html)
-    return s.get_text()
-
-
 def fetch(link):
-    html = urllib.request.urlopen(
+    raw = urllib.request.urlopen(
         urllib.request.Request(link, headers=HEADERS)
     ).read().decode("utf-8")
-    content = Document(html, url=link).summary()
-    plain = html_to_text(content)
-    anchors = lxml_html.fromstring(content).findall(".//a")
+
+    if raw.strip().startswith("<?xml") or "<rss" in raw[:500] or "<feed" in raw[:500]:
+        return ("rss", raw, [])
+
+    content = Document(raw, url=link).summary()
+
+    s = _Stripper()
+    s.feed(content)
+    plain = s.get_text()
+
+    tree = lxml_html.fromstring(content)
+    anchors = tree.findall(".//a")
     out_links = [urljoin(link, a.attrib["href"])
                  for a in anchors
                  if a.attrib.get("href") and not a.attrib["href"].startswith("#")]
-    return plain, out_links
+
+    a_text = sum(len(e.text or "") + len(e.tail or "") for e in tree.findall(".//a"))
+    total = len(tree.text_content() or "")
+    ld = a_text / max(total, 1)
+
+    if len(plain) < 200:
+        kind = "empty"
+    elif ld > 0.5:
+        kind = "link_page"
+    else:
+        kind = "post"
+    return (kind, plain, out_links)
 
 
-links = {
+posts = {
     entry.find("atom:link", namespaces=NS).attrib.get("href")
     for url in FEED_URLS
     for entry in xml.etree.ElementTree.parse(
@@ -71,25 +85,29 @@ links = {
     ).getroot().findall("atom:entry", NS)
 }
 
-queue = deque(links)
+pending = deque(posts)
+indexes = set()
 MAX_FETCH = 20
 n = 0
 
 with ThreadPoolExecutor(max_workers=8) as pool:
-    while queue and n < MAX_FETCH:
-        batch_size = min(len(queue), 8)
-        batch = [queue.popleft() for _ in range(batch_size)]
+    while pending and n < MAX_FETCH:
+        batch_size = min(len(pending), 8)
+        batch = [pending.popleft() for _ in range(batch_size)]
         futures = {pool.submit(fetch, l): l for l in batch}
         for f in as_completed(futures):
             link = futures[f]
             n += 1
             try:
-                plain, out_links = f.result()
-                print(f"FETCH: {link}  ({len(plain)} chars)")
+                kind, text, out_links = f.result()
+                print(f"FETCH [{kind}]: {link}  ({len(text)} chars)")
+                if kind == "link_page":
+                    indexes.add(link)
+                    posts.discard(link)
                 for l in out_links:
-                    if l not in links:
-                        links.add(l)
-                        queue.append(l)
+                    if l not in posts and l not in indexes:
+                        posts.add(l)
+                        pending.append(l)
                         print(f"  NEW: {l}")
             except Exception as e:
                 print(f"FETCH: {link}  ERROR: {e}")
