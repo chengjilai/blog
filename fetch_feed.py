@@ -1,6 +1,5 @@
 import os
 import re
-import time
 import xml.etree.ElementTree
 import urllib.request
 from html.parser import HTMLParser
@@ -123,23 +122,19 @@ with ThreadPoolExecutor(max_workers=8) as pool:
         for f in as_completed(futures):
             link = futures[f]
             MAX_FETCH -= 1
-            try:
-                kind, text, out_links = f.result()
-                print(f"FETCH [{kind}]: {link}  ({len(text)} chars)")
+            kind, text, out_links = f.result()
+            print(f"FETCH [{kind}]: {link}  ({len(text)} chars)")
 
-                if kind in ("post", "empty", "link_page"):
-                    (posts if kind == "post" else indexes).add(link)
+            (posts if kind == "post" else indexes).add(link)
 
-                if kind == "post" and text:
-                    with open(f"content/{_slug(link)}.txt", "w") as fp:
-                        fp.write(f"{link}\n\n{text}")
+            if kind == "post" and text:
+                with open(f"content/{_slug(link)}.txt", "w") as fp:
+                    fp.write(f"{link}\n\n{text}")
 
-                for l in out_links:
-                    if urlparse(l).netloc.removeprefix("www.") in BAD_DOMAINS:
-                        continue
-                    if l not in posts and l not in indexes:
-                        pending.append(l)
-                        print(f"  NEW: {l}")
-            except Exception as e:
-                print(f"FETCH: {link}  ERROR: {e}")
+            for l in out_links:
+                if urlparse(l).netloc.removeprefix("www.") in BAD_DOMAINS:
+                    continue
+                if l not in posts and l not in indexes:
+                    pending.append(l)
+                    print(f"  NEW: {l}")
         _save_state()
