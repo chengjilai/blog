@@ -10,7 +10,7 @@ uv sync
 
 ## Usage
 
-Edit `state.py` with your seed URLs:
+Edit `state.py` with seed URLs:
 
 ```python
 posts = set()
