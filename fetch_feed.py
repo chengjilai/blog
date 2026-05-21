@@ -50,7 +50,8 @@ class _Stripper(HTMLParser):
 def fetch(link):
     content = readability.Document(
         urllib.request.urlopen(
-            urllib.request.Request(link, headers={"User-Agent": "Mozilla/5.0"})
+            urllib.request.Request(link, headers={"User-Agent": "Mozilla/5.0"}),
+            timeout=10,
         ).read().decode("utf-8", errors="replace"),
         url=link,
     ).summary()
@@ -89,7 +90,7 @@ with ThreadPoolExecutor(max_workers=8) as pool:
             (posts if kind == "post" else indexes).add(link)
 
             for u in out_links:
-                if urlparse(u).netloc.removeprefix("www.") in {"web.archive.org", "en.wikipedia.org", "youtube.com", "x.com", "twitter.com", "goodreads.com", "amazon.com", "reddit.com", "marketplace.visualstudio.com", "xkcd.com", "codeberg.org", "gist.github.com", "github.com"}:
+                if urlparse(u).netloc.removeprefix("www.") in {"web.archive.org", "en.wikipedia.org", "youtube.com", "x.com", "twitter.com", "goodreads.com", "amazon.com", "reddit.com", "marketplace.visualstudio.com", "xkcd.com", "codeberg.org", "gist.github.com", "github.com", "redbubble.com", "webopedia.com", "stackify.com"}:
                     continue
                 if u not in posts and u not in indexes:
                     pending.append(u)
