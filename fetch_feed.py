@@ -51,7 +51,7 @@ def fetch(link):
     content = readability.Document(
         urllib.request.urlopen(
             urllib.request.Request(link, headers={"User-Agent": "Mozilla/5.0"})
-        ).read().decode("utf-8"),
+        ).read().decode("utf-8", errors="replace"),
         url=link,
     ).summary()
 
