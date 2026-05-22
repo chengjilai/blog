@@ -51,13 +51,18 @@ class _Stripper(HTMLParser):
 
 def fetch(link):
     logging.info("fetching %s", link)
-    content = readability.Document(
-        urllib.request.urlopen(
-            urllib.request.Request(link, headers={"User-Agent": "Mozilla/5.0"}),
-            timeout=10,
-        ).read().decode("utf-8", errors="replace"),
-        url=link,
-    ).summary()
+    try :
+        content = readability.Document(
+            urllib.request.urlopen(
+                urllib.request.Request(link, headers={"User-Agent": "Mozilla/5.0"}),
+                timeout=10,
+            ).read().decode("utf-8", errors="replace"),
+            url=link,
+        ).summary()
+
+    except Exception as e:
+        logging.info("%s %s", link, e)
+        return ("empty", "", [])
 
     s = _Stripper()
     s.feed(content)
@@ -78,11 +83,11 @@ def fetch(link):
 
 batch_n = 0
 
-with ThreadPoolExecutor(max_workers=8) as pool:
+with ThreadPoolExecutor(max_workers=20) as pool:
     while pending:
         batch_n += 1
         logging.info("=== batch %d ===", batch_n)
-        batch = [pending.popleft() for _ in range(min(len(pending), 8))]
+        batch = [pending.popleft() for _ in range(min(len(pending), 20))]
         futures = {pool.submit(fetch, u): u for u in batch}
         for f in as_completed(futures):
             link = futures[f]
@@ -97,12 +102,14 @@ with ThreadPoolExecutor(max_workers=8) as pool:
             (posts if kind == "post" else indexes).add(link)
 
             for u in out_links:
-                if urlparse(u).netloc.removeprefix("www.") in {"web.archive.org", "en.wikipedia.org", "youtube.com", "x.com", "twitter.com", "goodreads.com", "amazon.com", "reddit.com", "marketplace.visualstudio.com", "xkcd.com", "codeberg.org", "gist.github.com", "github.com", "redbubble.com", "webopedia.com", "stackify.com"}:
+                if urlparse(u).netloc.removeprefix("www.") in {"web.archive.org", "en.wikipedia.org", "youtube.com", "x.com", "twitter.com", "goodreads.com", "amazon.com", "reddit.com", "marketplace.visualstudio.com", "xkcd.com", "codeberg.org", "gist.github.com", "github.com", "redbubble.com", "webopedia.com", "stackify.com", "hackage.haskell.org","cppreference.com","en.cppreference.com","doc.rust-lang.org","cplusplus.github.io","godbolt.org","crates.io","docs.python.org","bugs.python.org","python.org","wg21.link","eel.is","open-std.org","boost.org","groups.google.com"} or urlparse(u).path.lower().endswith('.pdf') or urlparse(u).path.lower().endswith('.jpg'):
                     continue
-                if u not in posts and u not in indexes:
+                if u not in posts and u not in indexes and u not in pending:
                     pending.append(u)
                     logging.info("  NEW: %s", u)
 
         with open("state.py.tmp", "w") as f:
             f.write(f"from collections import deque\nposts = {repr(posts)}\nindexes = {repr(indexes)}\npending = {repr(pending)}\n")
         os.replace("state.py.tmp", "state.py")
+        if batch_n >=5:
+            break
